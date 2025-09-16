@@ -9,14 +9,12 @@ For example, create the file `src/jobs/hello-world.ts` with the following conten
 ```ts
 import {
   IProductModuleService,
-  MedusaContainer,
-} from "@medusajs/framework/types";
-import { ModuleRegistrationName } from "@medusajs/framework/utils";
+  MedusaContainer
+} from "@medusajs/types";
+import { ModuleRegistrationName } from "@medusajs/utils";
 
 export default async function myCustomJob(container: MedusaContainer) {
-  const productService: IProductModuleService = container.resolve(
-    ModuleRegistrationName.PRODUCT
-  );
+  const productService: IProductModuleService = container.resolve(ModuleRegistrationName.PRODUCT)
 
   const products = await productService.listAndCountProducts();
 

@@ -1,21 +1,33 @@
-import { CartProvider } from "@/lib/context/cart-context"
-import { retrieveCart } from "@/lib/data/cart"
-import { retrieveCustomer } from "@/lib/data/customer"
-import CartTemplate from "@/modules/cart/templates"
 import { Metadata } from "next"
+import CartTemplate from "@modules/cart/templates"
+
+import { enrichLineItems, retrieveCart } from "@lib/data/cart"
+import { HttpTypes } from "@medusajs/types"
+import { getCustomer } from "@lib/data/customer"
 
 export const metadata: Metadata = {
   title: "Cart",
   description: "View your cart",
 }
 
-export default async function Cart() {
-  const cart = await retrieveCart().catch(() => null)
-  const customer = await retrieveCustomer()
+const fetchCart = async () => {
+  const cart = await retrieveCart()
 
-  return (
-    <CartProvider cart={cart}>
-      <CartTemplate customer={customer} />
-    </CartProvider>
-  )
+  if (!cart) {
+    return null
+  }
+
+  if (cart?.items?.length) {
+    const enrichedItems = await enrichLineItems(cart?.items, cart?.region_id!)
+    cart.items = enrichedItems as HttpTypes.StoreCartLineItem[]
+  }
+
+  return cart
+}
+
+export default async function Cart() {
+  const cart = await fetchCart()
+  const customer = await getCustomer()
+
+  return <CartTemplate cart={cart} customer={customer} />
 }

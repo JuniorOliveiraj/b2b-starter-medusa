@@ -1,20 +1,19 @@
 "use client"
 
-import { isStripe as isStripeFunc, paymentInfoMap } from "@/lib/constants"
-import { initiatePaymentSession } from "@/lib/data/cart"
-import ErrorMessage from "@/modules/checkout/components/error-message"
-import PaymentContainer from "@/modules/checkout/components/payment-container"
-import { StripeContext } from "@/modules/checkout/components/payment-wrapper"
-import Button from "@/modules/common/components/button"
-import Divider from "@/modules/common/components/divider"
-import { ApprovalStatusType } from "@/types"
+import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { RadioGroup } from "@headlessui/react"
+import ErrorMessage from "@modules/checkout/components/error-message"
 import { CheckCircleSolid, CreditCard } from "@medusajs/icons"
-import { Container, Heading, Text, clx } from "@medusajs/ui"
+import { Button, Container, Heading, Text, Tooltip, clx } from "@medusajs/ui"
 import { CardElement } from "@stripe/react-stripe-js"
 import { StripeCardElementOptions } from "@stripe/stripe-js"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+
+import Divider from "@modules/common/components/divider"
+import PaymentContainer from "@modules/checkout/components/payment-container"
+import { isStripe as isStripeFunc, paymentInfoMap } from "@lib/constants"
+import { StripeContext } from "@modules/checkout/components/payment-wrapper"
+import { initiatePaymentSession } from "@lib/data/cart"
 
 const Payment = ({
   cart,
@@ -41,8 +40,7 @@ const Payment = ({
 
   const isOpen = searchParams.get("step") === "payment"
 
-  const cartApprovalStatus = cart.approval_status?.status
-
+  const isStripe = isStripeFunc(activeSession?.provider_id)
   const stripeReady = useContext(StripeContext)
 
   const paidByGiftcard =
@@ -90,10 +88,7 @@ const Payment = ({
       const shouldInputCard =
         isStripeFunc(selectedPaymentMethod) && !activeSession
 
-      if (
-        !activeSession ||
-        activeSession.provider_id !== selectedPaymentMethod
-      ) {
+      if (!activeSession) {
         await initiatePaymentSession(cart, {
           provider_id: selectedPaymentMethod,
         })
@@ -119,34 +114,32 @@ const Payment = ({
   }, [isOpen])
 
   return (
-    <Container>
-      <div className="flex flex-col gap-y-2">
-        <div className="flex flex-row items-center justify-between w-full">
-          <Heading
-            level="h2"
-            className={clx("flex flex-row text-xl gap-x-2 items-center", {
+    <div className="bg-white">
+      <div className="flex flex-row items-center justify-between mb-6">
+        <Heading
+          level="h2"
+          className={clx(
+            "flex flex-row text-3xl-regular gap-x-2 items-baseline",
+            {
               "opacity-50 pointer-events-none select-none":
                 !isOpen && !paymentReady,
-            })}
-          >
-            Payment Method
-            {!isOpen && paymentReady && <CheckCircleSolid />}
-          </Heading>
-          {!isOpen &&
-            paymentReady &&
-            cartApprovalStatus !== ApprovalStatusType.PENDING && (
-              <Text>
-                <button
-                  onClick={handleEdit}
-                  className="text-ui-fg-interactive hover:text-ui-fg-interactive-hover"
-                  data-testid="edit-payment-button"
-                >
-                  Edit
-                </button>
-              </Text>
-            )}
-        </div>
-        {(isOpen || (cart && paymentReady && activeSession)) && <Divider />}
+            }
+          )}
+        >
+          Payment
+          {!isOpen && paymentReady && <CheckCircleSolid />}
+        </Heading>
+        {!isOpen && paymentReady && (
+          <Text>
+            <button
+              onClick={handleEdit}
+              className="text-ui-fg-interactive hover:text-ui-fg-interactive-hover"
+              data-testid="edit-payment-button"
+            >
+              Edit
+            </button>
+          </Text>
+        )}
       </div>
       <div>
         <div className={isOpen ? "block" : "hidden"}>
@@ -171,7 +164,7 @@ const Payment = ({
                     )
                   })}
               </RadioGroup>
-              {stripeReady && selectedPaymentMethod === "pp_stripe_stripe" && (
+              {isStripe && stripeReady && (
                 <div className="mt-5 transition-all duration-150 ease-in-out">
                   <Text className="txt-medium-plus text-ui-fg-base mb-1">
                     Enter your card details:
@@ -195,6 +188,9 @@ const Payment = ({
 
           {paidByGiftcard && (
             <div className="flex flex-col w-1/3">
+              <Text className="txt-medium-plus text-ui-fg-base mb-1">
+                Payment method
+              </Text>
               <Text
                 className="txt-medium text-ui-fg-subtle"
                 data-testid="payment-method-summary"
@@ -204,35 +200,35 @@ const Payment = ({
             </div>
           )}
 
-          <div className="flex flex-col gap-y-2 items-end">
-            <ErrorMessage
-              error={error}
-              data-testid="payment-method-error-message"
-            />
+          <ErrorMessage
+            error={error}
+            data-testid="payment-method-error-message"
+          />
 
-            <Button
-              size="large"
-              className="mt-6"
-              onClick={handleSubmit}
-              isLoading={isLoading}
-              disabled={
-                (selectedPaymentMethod === "pp_stripe_stripe" &&
-                  !cardComplete) ||
-                (!selectedPaymentMethod && !paidByGiftcard)
-              }
-              data-testid="submit-payment-button"
-            >
-              {!activeSession && isStripeFunc(selectedPaymentMethod)
-                ? " Enter card details"
-                : "Next step"}
-            </Button>
-          </div>
+          <Button
+            size="large"
+            className="mt-6"
+            onClick={handleSubmit}
+            isLoading={isLoading}
+            disabled={
+              (isStripe && !cardComplete) ||
+              (!selectedPaymentMethod && !paidByGiftcard)
+            }
+            data-testid="submit-payment-button"
+          >
+            {!activeSession && isStripeFunc(selectedPaymentMethod)
+              ? " Enter card details"
+              : "Continue to review"}
+          </Button>
         </div>
 
         <div className={isOpen ? "hidden" : "block"}>
           {cart && paymentReady && activeSession ? (
-            <div className="flex items-center gap-x-1 w-full pt-2">
+            <div className="flex items-start gap-x-1 w-full">
               <div className="flex flex-col w-1/3">
+                <Text className="txt-medium-plus text-ui-fg-base mb-1">
+                  Payment method
+                </Text>
                 <Text
                   className="txt-medium text-ui-fg-subtle"
                   data-testid="payment-method-summary"
@@ -242,6 +238,9 @@ const Payment = ({
                 </Text>
               </div>
               <div className="flex flex-col w-1/3">
+                <Text className="txt-medium-plus text-ui-fg-base mb-1">
+                  Payment details
+                </Text>
                 <div
                   className="flex gap-2 txt-medium text-ui-fg-subtle items-center"
                   data-testid="payment-details-summary"
@@ -254,7 +253,7 @@ const Payment = ({
                   <Text>
                     {isStripeFunc(selectedPaymentMethod) && cardBrand
                       ? cardBrand
-                      : paymentInfoMap[selectedPaymentMethod]?.title}
+                      : "Another step will appear"}
                   </Text>
                 </div>
               </div>
@@ -274,7 +273,8 @@ const Payment = ({
           ) : null}
         </div>
       </div>
-    </Container>
+      <Divider className="mt-8" />
+    </div>
   )
 }
 

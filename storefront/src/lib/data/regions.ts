@@ -1,50 +1,28 @@
-"use server"
-
-import { sdk } from "@/lib/config"
-import medusaError from "@/lib/util/medusa-error"
+import { sdk } from "@lib/config"
+import medusaError from "@lib/util/medusa-error"
+import { cache } from "react"
 import { HttpTypes } from "@medusajs/types"
-import { getCacheOptions } from "./cookies"
 
-export const listRegions = async (): Promise<HttpTypes.StoreRegion[]> => {
-  const next = {
-    ...(await getCacheOptions("regions")),
-  }
-
-  return sdk.client
-    .fetch<{ regions: HttpTypes.StoreRegion[] }>(`/store/regions`, {
-      method: "GET",
-      next,
-      cache: "force-cache",
-    })
-    .then(({ regions }: { regions: HttpTypes.StoreRegion[] }) => regions)
+export const listRegions = cache(async function () {
+  return sdk.store.region
+    .list({}, { next: { tags: ["regions"] } })
+    .then(({ regions }) => regions)
     .catch(medusaError)
-}
+})
 
-export const retrieveRegion = async (
-  id: string
-): Promise<HttpTypes.StoreRegion> => {
-  const next = {
-    ...(await getCacheOptions(["regions", id].join("-"))),
-  }
-
-  return sdk.client
-    .fetch<{ region: HttpTypes.StoreRegion }>(`/store/regions/${id}`, {
-      method: "GET",
-      next,
-      cache: "force-cache",
-    })
-    .then(({ region }: { region: HttpTypes.StoreRegion }) => region)
+export const retrieveRegion = cache(async function (id: string) {
+  return sdk.store.region
+    .retrieve(id, {}, { next: { tags: ["regions"] } })
+    .then(({ region }) => region)
     .catch(medusaError)
-}
+})
 
 const regionMap = new Map<string, HttpTypes.StoreRegion>()
 
-export const getRegion = async (
-  countryCode: string
-): Promise<HttpTypes.StoreRegion | null> => {
+export const getRegion = cache(async function (countryCode: string) {
   try {
     if (regionMap.has(countryCode)) {
-      return regionMap.get(countryCode) ?? null
+      return regionMap.get(countryCode)
     }
 
     const regions = await listRegions()
@@ -63,8 +41,8 @@ export const getRegion = async (
       ? regionMap.get(countryCode)
       : regionMap.get("us")
 
-    return region ?? null
+    return region
   } catch (e: any) {
     return null
   }
-}
+})

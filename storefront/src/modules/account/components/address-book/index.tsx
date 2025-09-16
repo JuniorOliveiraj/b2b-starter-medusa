@@ -1,10 +1,11 @@
-import AddAddress from "@/modules/account/components/address-card/add-address"
-import EditAddress from "@/modules/account/components/address-card/edit-address-modal"
-import { B2BCustomer } from "@/types/global"
+import React from "react"
+
+import AddAddress from "../address-card/add-address"
+import EditAddress from "../address-card/edit-address-modal"
 import { HttpTypes } from "@medusajs/types"
 
 type AddressBookProps = {
-  customer: B2BCustomer
+  customer: HttpTypes.StoreCustomer
   region: HttpTypes.StoreRegion
 }
 
@@ -15,12 +16,7 @@ const AddressBook: React.FC<AddressBookProps> = ({ customer, region }) => {
         <AddAddress region={region} />
         {customer.addresses.map((address) => {
           return (
-            <EditAddress
-              region={region}
-              address={address}
-              key={address.id}
-              customer={customer}
-            />
+            <EditAddress region={region} address={address} key={address.id} />
           )
         })}
       </div>

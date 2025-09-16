@@ -1,4 +1,5 @@
 import { HttpTypes } from "@medusajs/types"
+import { notFound } from "next/navigation"
 import { NextRequest, NextResponse } from "next/server"
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
@@ -10,7 +11,7 @@ const regionMapCache = {
   regionMapUpdated: Date.now(),
 }
 
-async function getRegionMap(cacheId: string) {
+async function getRegionMap() {
   const { regionMap, regionMapUpdated } = regionMapCache
 
   if (
@@ -24,22 +25,12 @@ async function getRegionMap(cacheId: string) {
       },
       next: {
         revalidate: 3600,
-        tags: [`regions-${cacheId}`],
+        tags: ["regions"],
       },
-    }).then(async (response) => {
-      const json = await response.json()
-
-      if (!response.ok) {
-        throw new Error(json.message)
-      }
-
-      return json
-    })
+    }).then((res) => res.json())
 
     if (!regions?.length) {
-      throw new Error(
-        "No regions found. Please set up regions in your Medusa Admin."
-      )
+      notFound()
     }
 
     // Create a map of country codes to regions.
@@ -93,36 +84,18 @@ async function getCountryCode(
   }
 }
 
-async function setCacheId(request: NextRequest, response: NextResponse) {
-  const cacheId = request.nextUrl.searchParams.get("_medusa_cache_id")
-
-  if (cacheId) {
-    return cacheId
-  }
-
-  const newCacheId = crypto.randomUUID()
-  response.cookies.set("_medusa_cache_id", newCacheId, { maxAge: 60 * 60 * 24 })
-  return newCacheId
-}
-
 /**
- * Middleware to handle region selection and cache id.
+ * Middleware to handle region selection and onboarding status.
  */
 export async function middleware(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
+  const isOnboarding = searchParams.get("onboarding") === "true"
   const cartId = searchParams.get("cart_id")
   const checkoutStep = searchParams.get("step")
-  const cacheIdCookie = request.cookies.get("_medusa_cache_id")
+  const onboardingCookie = request.cookies.get("_medusa_onboarding")
   const cartIdCookie = request.cookies.get("_medusa_cart_id")
 
-  let redirectUrl = request.nextUrl.href
-
-  let response = NextResponse.redirect(redirectUrl, 307)
-
-  // Set a cache id to invalidate the cache for this instance only
-  const cacheId = await setCacheId(request, response)
-
-  const regionMap = await getRegionMap(cacheId)
+  const regionMap = await getRegionMap()
 
   const countryCode = regionMap && (await getCountryCode(request, regionMap))
 
@@ -130,12 +103,11 @@ export async function middleware(request: NextRequest) {
     countryCode && request.nextUrl.pathname.split("/")[1].includes(countryCode)
 
   // check if one of the country codes is in the url
-  if (urlHasCountryCode && (!cartId || cartIdCookie) && cacheIdCookie) {
-    return NextResponse.next()
-  }
-
-  // check if the url is a static asset
-  if (request.nextUrl.pathname.includes(".")) {
+  if (
+    urlHasCountryCode &&
+    (!isOnboarding || onboardingCookie) &&
+    (!cartId || cartIdCookie)
+  ) {
     return NextResponse.next()
   }
 
@@ -143,6 +115,10 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname === "/" ? "" : request.nextUrl.pathname
 
   const queryString = request.nextUrl.search ? request.nextUrl.search : ""
+
+  let redirectUrl = request.nextUrl.href
+
+  let response = NextResponse.redirect(redirectUrl, 307)
 
   // If no country code is set, we redirect to the relevant region.
   if (!urlHasCountryCode && countryCode) {
@@ -157,11 +133,14 @@ export async function middleware(request: NextRequest) {
     response.cookies.set("_medusa_cart_id", cartId, { maxAge: 60 * 60 * 24 })
   }
 
+  // Set a cookie to indicate that we're onboarding. This is used to show the onboarding flow.
+  if (isOnboarding) {
+    response.cookies.set("_medusa_onboarding", "true", { maxAge: 60 * 60 * 24 })
+  }
+
   return response
 }
 
 export const config = {
-  matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|images|assets|png|svg|jpg|jpeg|gif|webp).*)",
-  ],
+  matcher: ["/((?!api|_next/static|favicon.ico|.*\\.png|.*\\.jpg|.*\\.gif|.*\\.svg).*)"], // prevents redirecting on static files
 }
