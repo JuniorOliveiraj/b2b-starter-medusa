@@ -12149,7 +12149,7 @@ __metadata:
     ts-node: "npm:^10.9.2"
     typescript: "npm:^5.5.3"
     vite: "npm:^5.2.11"
-    zod: "npm:3.21.4"
+    zod: "npm:3.22.4"
   languageName: unknown
   linkType: soft
 
@@ -15743,13 +15743,6 @@ __metadata:
   peerDependencies:
     zod: ^3.25.0
   checksum: 10c0/3cc9a4a8da5e9748814873b6d6638376073138b9c021889c2940a14c6bb1d65055cd75fbe9609fd62468efa8df393a29f3a2ed5be00d0ecefbac4ff6760d9a5e
-  languageName: node
-  linkType: hard
-
-"zod@npm:3.21.4":
-  version: 3.21.4
-  resolution: "zod@npm:3.21.4"
-  checksum: 10c0/161e8cf7aea38a99244d65da4a9477d9d966f6a533e503feaa20ff7968a9691065c38c6f1eab5cbbdc8374142fff4a05c9cacb8479803ab50ab6a6ca80e5d624
   languageName: node
   linkType: hard
 
